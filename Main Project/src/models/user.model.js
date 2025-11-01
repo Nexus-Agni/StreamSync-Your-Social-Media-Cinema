@@ -34,6 +34,9 @@ const UserSchema = new Schema ({
     coverImage : {
         type : String,  // cloudinary image url
     }, 
+    isLoggedIn : {
+        type : Boolean
+    },
     watchHistory : [
         {
             type : Schema.Types.ObjectId,
@@ -72,7 +75,7 @@ UserSchema.methods.generateAccessToken = function () {
         },
         process.env.ACCESS_TOKEN_SECRET,
         {
-            expiresIn : process.env.ACCESS_TOKEN_EXPIRY
+            expiresIn : process.env.ACCESS_TOKEN_EXPIRES_IN
         }
     )
 }
@@ -86,7 +89,7 @@ UserSchema.methods.generateRefreshToken = function () {
         },
         process.env.REFRESH_TOKEN_SECRET ,
         {
-            expiresIn : process.env.REFRESH_TOKEN_EXPIRY
+            expiresIn : process.env.REFRESH_TOKEN_EXPIRES_IN
         }
     )
 }
