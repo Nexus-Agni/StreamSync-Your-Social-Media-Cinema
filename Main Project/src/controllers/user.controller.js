@@ -14,8 +14,8 @@ const getRefreshAndAccessToken = async (userId)=> {
         const accessToken = user.generateAccessToken()
         const refreshToken = user.generateRefreshToken()
 
-        console.log("Acess Token: ", accessToken);
-        console.log("Refresh Token: ", refreshToken);
+        // console.log("Acess Token: ", accessToken);
+        // console.log("Refresh Token: ", refreshToken);
         
     
         user.refreshToken = refreshToken
@@ -147,7 +147,7 @@ const loginUser = asyncHandler(async (req, res)=>{
 
     try {
         const {username, password, email} = req.body
-        console.log(username, password, email);
+        // console.log(username, password, email);
     
         if (!username && !email) {
             throw new ApiError(500, "Either username or email is required")
@@ -156,12 +156,14 @@ const loginUser = asyncHandler(async (req, res)=>{
         const user = await User.findOne({
             $or : [{username}, {email}]
         })
-        console.log(user);
+        // console.log(user);
         if (!user) {
             throw new ApiError(404, "User does not exist")
         }
     
         const isPasswordValid = await user.isPasswordCorrect(password)
+        console.log("IsPassword Valid: ", isPasswordValid);
+        
         if (!isPasswordValid) {
             throw new ApiError(401, "Invalid login credentials")
         }
@@ -192,7 +194,7 @@ const loginUser = asyncHandler(async (req, res)=>{
             )
         )
     } catch (error) {
-        throw new ApiError(500, "Something went wrong during Logging in user.")
+        throw new ApiError(error.statusCode || 500, error.message || "Something went wrong during Logging in user.")
     }
 
 })
@@ -200,7 +202,7 @@ const loginUser = asyncHandler(async (req, res)=>{
 const logoutUser =asyncHandler(async (req, res)=>{
 
     await User.findByIdAndUpdate(
-        req.user._id,
+        req.user?._id,
         {
             $unset : {
                 refreshToken : 1,
@@ -217,14 +219,14 @@ const logoutUser =asyncHandler(async (req, res)=>{
         secure : true
     }
 
-    res.status(200)
+    return res.status(200)
     .clearCookie("refreshToken", options)
     .clearCookie("accessToken", options)
     .json(new ApiResponse(200, {}, "User logged out successfully"))
 })
 
 const refreshAccessToken = asyncHandler(async (req, res, next)=>{
-    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
+    const incomingRefreshToken = req.cookies.refreshToken
 
     if (!incomingRefreshToken) {
         throw new ApiError(401, "Unauthorized request")
@@ -238,9 +240,12 @@ const refreshAccessToken = asyncHandler(async (req, res, next)=>{
             if (!user) {
                 throw new ApiError(401, "Invalid refresh token")
             }
+
+            // console.log("Decoded Token: ", decodedToken);
+            
         
             //matching incoming refresh token with token of database
-            if (decodedToken !== user?.refreshToken) {
+            if (incomingRefreshToken !== user?.refreshToken) {
                 throw new ApiError(401, "Refresh token is expired or used")
             }
         
@@ -249,17 +254,21 @@ const refreshAccessToken = asyncHandler(async (req, res, next)=>{
                 secure : true
             }
         
-            const {accessToken, newRefreshToken} = await getRefreshAndAccessToken(user._id)
+            const {accessToken, refreshToken : newRefreshToken} = await getRefreshAndAccessToken(user._id)
+            // console.log("Access Token: ", accessToken);
+            // console.log("Refrsh Token: ", newRefreshToken);
+            
+
+            user.refreshToken = newRefreshToken
+            await user.save({validateBeforeSave : false})
         
-            res
-            .status(200)
-            .cookie("accessToken", accessToken, options)
-            .cookie("refreshToken", newRefreshToken, options)
-            .json(
-                200,
-                {accessToken, refreshToken : newRefreshToken},
-                "Access Token refreshed successfully"
-            )
+            return res
+                    .status(200)
+                    .cookie("accessToken", accessToken, options)
+                    .cookie("refreshToken", newRefreshToken, options)
+                    .json(new ApiResponse(200, {accessToken, newRefreshToken, incomingRefreshToken}, 
+                        "Access tokens refreshed successfully" //FIXME: Remove tokens from response
+                    ))
     } catch (error) {
         throw new ApiError(401, error?.message || "Invalid refresh token")
     }
@@ -269,8 +278,9 @@ const refreshAccessToken = asyncHandler(async (req, res, next)=>{
 const changeCurrentPassword = asyncHandler(async (req, res, next)=>{
 try {
         const {oldPassword, newPassword} = req.body
-    
-        const user = await User.findById(req.user?._id)
+        // console.log("Old Password: ", oldPassword);
+        // console.log("New Password: ", newPassword);
+        const user = await User.findById(req.user?._id);
     
         const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
         if (!isPasswordCorrect) {
@@ -284,7 +294,7 @@ try {
         .status(200)
         .json(new ApiResponse(200,{},"Password updated successfully"))
 } catch (error) {
-    throw new ApiError(401, error?.message || "Password update failed")
+    throw new ApiError(401, error?.message || "Something went wrong during password updation")
 }
 })
 

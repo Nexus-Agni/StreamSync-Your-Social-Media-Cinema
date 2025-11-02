@@ -22,7 +22,7 @@ userRouter.route('/login').post(loginUser)
 
 //secured routes
 userRouter.route('/logout').post(verifyJWT,logoutUser)
-userRouter.route('/refresh-token').post(refreshAccessToken)
+userRouter.route('/refresh-access-token').post(verifyJWT, refreshAccessToken)
 userRouter.route('/change-password').post(verifyJWT, changeCurrentPassword)
 
 //get methods
