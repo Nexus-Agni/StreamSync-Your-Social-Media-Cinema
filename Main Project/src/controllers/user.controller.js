@@ -76,7 +76,7 @@ const registerUser = asyncHandler(async (req, res)=>{
         $or : [{email}, {username}]
     })
     if (existedUser) {
-        throw new ApiError(509, "User already exists")
+        throw new ApiError(409, "User with this email already exists")
     }
 
     //
@@ -162,7 +162,7 @@ const loginUser = asyncHandler(async (req, res)=>{
         }
     
         const isPasswordValid = await user.isPasswordCorrect(password)
-        console.log("IsPassword Valid: ", isPasswordValid);
+        // console.log("IsPassword Valid: ", isPasswordValid);
         
         if (!isPasswordValid) {
             throw new ApiError(401, "Invalid login credentials")
@@ -306,27 +306,27 @@ const getCurrentUser = asyncHandler (async (req, res, next)=>{
 
 const updateAccountDetails = asyncHandler(async (req, res, next)=>{
 try {
-        const {fullname,email} = req.body
+        const {fullname,username} = req.body
     
-        if (!fullname || !email) {
-            throw new ApiError(400, "Fullname and email fields are required")
+        if (!fullname && !username) {
+            throw new ApiError(400, "Atleast one field (Username or email) is required to update user details")
         }
     
         const user = await User.findByIdAndUpdate(
             req.user?._id,
             {
                 $set : {
-                    fullname, email
+                    fullname, username
                 }
             },
             {new : true}
-        ).select("-password")
+        ).select("-password -refreshToken")
     
         return res
         .status(200)
         .json(new ApiResponse(200, user, "Account details updated successfully"))
 } catch (error) {
-    throw new ApiError(401, error?.message || "Account details update failed")
+    throw new ApiError(error.statusCode || 500, error?.message || "Something went wrong during account details update")
 }
 
 })
@@ -339,7 +339,7 @@ try {
             throw new ApiError(400, "Avatar is required")
         }
     
-        const avatar = uploadOnCloudinary(avatarLocalPath)
+        const avatar = await uploadOnCloudinary(avatarLocalPath)
     
         const oldAvatarPublicId = req.user?.avatar?.split("/").pop()?.split(".")[0]
     
@@ -353,7 +353,7 @@ try {
                 $set : {avatar: avatar.url}
             },
             {new: true}
-        ).select("-password")
+        ).select("-password -refreshToken")
     
         await deleteFromCloudinary(oldAvatarPublicId)
     
@@ -365,7 +365,7 @@ try {
             "Avatar updated successfully"
         ))
 } catch (error) {
-    throw new ApiError(401, error?.message || "Avatar update failed")
+    throw new ApiError( error.statusCode || 401, error?.message || "Avatar update failed")
 }
 })
 
@@ -376,7 +376,7 @@ try {
             throw new ApiError(400, "Cover Image is required")
         }
     
-        const coverImage = uploadOnCloudinary(coverImageLocalPath)
+        const coverImage = await uploadOnCloudinary(coverImageLocalPath)
         if (!coverImage) {
             throw new ApiError(400, "Error while uploading cover image on cloudinary")
         }
@@ -391,7 +391,7 @@ try {
                 }
             },
             {new : true}
-        ).select("-password")
+        ).select("-password -refreshToken")
     
         await deleteFromCloudinary(oldCoverImagePublicId)
     
