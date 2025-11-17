@@ -102,8 +102,16 @@ const updateTweet = asyncHandler(async (req, res) => {
         }
 
         const userId = req.user?._id;
-        //TODO: To check if the onwer of the tweetId is this userId only before proceeding.
-    
+        
+        const existingTweet = await Tweet.findById(tweetId);
+        if (!existingTweet) {
+            throw new ApiError(404, "Tweet requested for update is not available")
+        }
+
+        if (existingTweet.owner.toString() !== userId.toString()) {
+            throw new ApiError(403, "Forbidden: You can only update your own tweets")
+        }
+
         const tweet = await Tweet.findByIdAndUpdate(
             tweetId,
             {
@@ -114,13 +122,7 @@ const updateTweet = asyncHandler(async (req, res) => {
             {
                 new : true
             }
-        ).select('_id content owner')
-
-        // console.log("Tweet owner: ", tweet.owner);
-        // console.log("UserId: ", userId);
-    //     if (tweet.owner.toString() !== userId.toString()) {
-    //     throw new ApiError(403, "Forbidden: You can only update your own tweets")
-    // }
+        ).select('_id content')
 
         res.status(200).json(
             new ApiResponse(200, tweet, "Tweet Updated Successfully")
@@ -131,7 +133,31 @@ const updateTweet = asyncHandler(async (req, res) => {
 })
 
 const deleteTweet = asyncHandler(async (req, res) => {
-    //TODO: delete tweet
+    try {
+        const {tweetId} = req.params;
+        if (!tweetId) {
+            throw new ApiError(404, "TweetId is required for updating the tweet")
+        }
+    
+        const userId = req.user?._id;
+            
+        const existingTweet = await Tweet.findById(tweetId);
+        if (!existingTweet) {
+            throw new ApiError(404, "Tweet requested for delete is not available")
+        }
+    
+        if (existingTweet.owner.toString() !== userId.toString()) {
+            throw new ApiError(403, "Forbidden: You can only delete your own tweets")
+        }
+    
+        const deletedTweet = await Tweet.findByIdAndDelete(tweetId).select('_id content');
+    
+        res.status(200).json(
+            new ApiResponse(200, deletedTweet, "Tweet Deleted Successfully")
+        )
+    } catch (error) {
+        throw new ApiError(error.statusCode || 500, error.message || "Something went wrong while deleting tweet")
+    }
 })
 
 export {
