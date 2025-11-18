@@ -75,8 +75,66 @@ const getAllVideos = asyncHandler(async (req, res) => {
 })
 
 const publishAVideo = asyncHandler(async (req, res) => {
-    const { title, description} = req.body
-    // TODO: get video, upload to cloudinary, create video
+    try {
+        const { title, description} = req.body
+        if (!title?.trim()) {
+            throw new ApiError(500, "Title is required");
+        }
+        if (!description?.trim()) {
+            throw new ApiError(500, "Description is required");
+        }
+    
+        let videoFileLocalPath;
+        if (req.files && req.files.videoFile && Array.isArray(req.files.videoFile) && req.files.videoFile.length > 0 ) {
+            videoFileLocalPath = req.files.videoFile[0].path;
+        }
+    
+        let thumbnailLocalPath;
+        if (req.files && req.files.thumbnail && Array.isArray(req.files.thumbnail) && req.files.thumbnail.length > 0) {
+            thumbnailLocalPath = req.files.thumbnail[0].path;
+        }
+    
+        if (!videoFileLocalPath) {
+            throw new ApiError(500, "Video file is required");
+        }
+        if (!thumbnailLocalPath) {
+            throw new ApiError(500, "Thumbnail is required");
+        }
+    
+        const videoFile = await uploadOnCloudinary(videoFileLocalPath, "video");
+        const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+    
+        if (!videoFile) {
+            throw new ApiError(500, "Something went wrong while uploading videoFile on cloudinary")
+        }
+        if (!thumbnail) {
+            throw new ApiError(500, "Something went wrong while uploading thumbnail on cloudinary")
+        }
+
+        const duration = videoFile.duration || 0;
+    
+        const owner = req.user?._id;
+    
+        const video = await Video.create({
+            videoFile : videoFile.url,
+            thumbnail : thumbnail.url,
+            title,
+            description,
+            duration : Math.round(duration),
+            owner
+        })
+    
+        const createdVideo = await Video.findById(video._id);
+        if (!createdVideo) {
+            throw new ApiError(500, "Something went wrong while saving video on DB")
+        }
+    
+        return res.status(200).json(
+            new ApiResponse(200, createdVideo, "Video published successfully")
+        )
+    } catch (error) {
+        throw new ApiError(error.statusCode || 500 , error.message || "Something went wrong while publishing the video")
+    }
 })
 
 const getVideoById = asyncHandler(async (req, res) => {

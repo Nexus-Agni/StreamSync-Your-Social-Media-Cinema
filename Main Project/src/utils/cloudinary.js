@@ -1,4 +1,4 @@
-import cloudinary from 'cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import { ApiError } from './apiError.js';
 
@@ -8,41 +8,66 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-const uploadOnCloudinary = async (localFilePath)=>{
+const uploadOnCloudinary = async (localFilePath, resourceType = "auto") => {
     try {
-        if(!localFilePath) {
+        if (!localFilePath) {
             console.log('No local file path found');
-            return null
+            return null;
         }
-        //upload on cloudinary
-        const response = await cloudinary.uploader.upload(localFilePath, {
-            resource_type : "auto"
-        })
-        console.log('File uploaded successfully', response.url);
-        fs.unlinkSync(localFilePath)
-        return response
 
-        //
+        // Check if file exists
+        if (!fs.existsSync(localFilePath)) {
+            console.log('File does not exist at path:', localFilePath);
+            return null;
+        }
+
+        console.log(`Uploading file: ${localFilePath} as ${resourceType}`);
+
+        // Upload to cloudinary with proper options
+        const response = await cloudinary.uploader.upload(localFilePath, {
+            resource_type: resourceType,
+            folder: resourceType === "video" ? "videos" : "images", // Organize in folders
+        });
+
+        console.log('File uploaded successfully on cloudinary');
+        console.log('URL:', response.url);
+        // console.log('Duration:', response.duration);
+
+        // Delete local file after successful upload
+        fs.unlinkSync(localFilePath);
+        
+        return response;
+
     } catch (error) {
-        fs.unlinkSync(localFilePath) // remove file from server
-        return null
+        console.error("Cloudinary Upload Error: ", error);
+        
+        // Clean up local file even if upload fails
+        if (fs.existsSync(localFilePath)) {
+            fs.unlinkSync(localFilePath);
+        }
+        
+        return null;
     }
 }
 
-const deleteFromCloudinary = async (publicId)=>{
+const deleteFromCloudinary = async (publicId, resourceType = "image") => {
     try {
-        if(!publicId) {
+        if (!publicId) {
             throw new ApiError(400, 'No public id found');
         }
-        //delete from cloudinary
-        const response = await cloudinary.uploader.destroy(publicId)
-        console.log('File deleted successfully', response);
-        return response
 
-        //
+        // Delete from cloudinary
+        const response = await cloudinary.uploader.destroy(publicId, {
+            resource_type: resourceType
+        });
+        
+        console.log('File deleted successfully', response);
+        return response;
+
     } catch (error) {
-        return null
+        console.error("Cloudinary Delete Error: ", error);
+        return null;
     }
 }
 
-export {uploadOnCloudinary, deleteFromCloudinary} 
+export { uploadOnCloudinary, deleteFromCloudinary }
