@@ -21,6 +21,7 @@ app.use(cookieParser())
 //import routes
 import userRouter from "./routers/user.route.js";
 import tweetRouter from "./routers/tweet.route.js";
+import videoRouter from "./routers/video.route.js";
 
 
 
@@ -28,7 +29,7 @@ import tweetRouter from "./routers/tweet.route.js";
 // router declaration
 app.use('/api/v1/users', userRouter)
 app.use('/api/v1/tweets', tweetRouter)
-
+app.use('/api/v1/videos', videoRouter)
 
 
 export default app;

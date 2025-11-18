@@ -92,8 +92,8 @@ const getUserTweets = asyncHandler(async (req, res) => {
 const updateTweet = asyncHandler(async (req, res) => {
     try {
         const {tweetId} = req.params;
-        if (!tweetId) {
-            throw new ApiError(404, "TweetId is required for updating the tweet")
+        if (!isValidObjectId(tweetId)) {
+            throw new ApiError(400, "Invalid tweet id")
         }
         
         const {updatedContent} = req.body;
@@ -135,8 +135,8 @@ const updateTweet = asyncHandler(async (req, res) => {
 const deleteTweet = asyncHandler(async (req, res) => {
     try {
         const {tweetId} = req.params;
-        if (!tweetId) {
-            throw new ApiError(404, "TweetId is required for updating the tweet")
+        if (!isValidObjectId(tweetId)) {
+            throw new ApiError(400, "Invalid tweet id")
         }
     
         const userId = req.user?._id;
