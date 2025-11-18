@@ -138,8 +138,53 @@ const publishAVideo = asyncHandler(async (req, res) => {
 })
 
 const getVideoById = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
-    //TODO: get video by id
+    try {
+        const { videoId } = req.params
+        //TODO: get video by id
+        if (!videoId) {
+            throw new ApiError(400, "VideoId is required");
+        }
+    
+        const video = await Video.aggregate([
+            {
+                $match : {
+                    _id : new mongoose.Types.ObjectId(videoId)
+                }
+            }, {
+                $lookup : {
+                    from : "users",
+                    localField : "owner",
+                    foreignField : "_id",
+                    as : "owner", 
+                    pipeline : [
+                        {
+                            $project : {
+                                username : 1,
+                                fullname : 1,
+                                avatar : 1
+                            }
+                        }
+                    ]
+                }
+            }, {
+                $project : {
+                    createdAt : 0,
+                    updatedAt : 0,
+                    __v : 0
+                }
+            }
+        ])
+    
+        if (!video) {
+            throw new ApiError(404, "Video not found from DB");
+        }
+    
+        res.status(200).json(
+            new ApiResponse(200, video[0], "Video fetched successfully")
+        )
+    } catch (error) {
+        throw new ApiError(error.statusCode || 500, error.message || "Something went wrong while fetching video")
+    }
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
