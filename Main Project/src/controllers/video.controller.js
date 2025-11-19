@@ -2,7 +2,7 @@ import mongoose, {isValidObjectId} from "mongoose"
 import {Video} from "../models/video.model.js"
 import {User} from "../models/user.model.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
-import {uploadOnCloudinary} from "../utils/cloudinary.js"
+import {deleteFromCloudinary, uploadOnCloudinary} from "../utils/cloudinary.js"
 import { ApiError } from "../utils/apiError.js"
 import { ApiResponse } from "../utils/apiResponse.js"
 
@@ -140,8 +140,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
 const getVideoById = asyncHandler(async (req, res) => {
     try {
         const { videoId } = req.params
-        //TODO: get video by id
-        if (!videoId) {
+        if (!videoId || !mongoose.isValidObjectId(videoId)) {
             throw new ApiError(400, "VideoId is required");
         }
     
@@ -166,7 +165,12 @@ const getVideoById = asyncHandler(async (req, res) => {
                         }
                     ]
                 }
-            }, {
+            }, 
+            {
+                $addFields: {
+                    owner: { $first: "$owner" } 
+                }
+            },{
                 $project : {
                     createdAt : 0,
                     updatedAt : 0,
@@ -188,18 +192,114 @@ const getVideoById = asyncHandler(async (req, res) => {
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
-    //TODO: update video details like title, description, thumbnail
+try {
+        const { videoId } = req.params
+        if (!videoId || !mongoose.isValidObjectId(videoId)) {
+            throw new ApiError(400, "VideoId is required");
+        }
+    
+        const {title, description, thumbnail} = req.body;
+        if (!title && !description && !thumbnail) {
+            throw new ApiError(400, "At least one field among title, description, thumbnail is required");
+        }
+    
+        const userId = req.user?._id; 
+    
+        const video = await Video.findById(videoId);
+        if (!video) {
+            throw new ApiError(404, "Video not found from DB");
+        }
+        if (video.owner.toString() !== userId.toString()) {
+            throw new ApiError(403, "Forbidden: You can only update your own videos");
+        }
 
+        if (thumbnail) {
+           // TODO : Implement new Thumbnail upload and old thumbnail delete from cloudinary
+        }
+    
+        const updatedVideo = await Video.findByIdAndUpdate(
+            videoId,
+            {
+                $set : {
+                    ...(title && {title}),
+                    ...(description && {description}),
+                    ...(thumbnail && {thumbnail})
+                }
+            },
+            {new : true}
+        )
+    
+        res.status(200).json(
+            new ApiResponse(200, updatedVideo, "Video updated successfully")
+        )
+} catch (error) {
+    throw new ApiError(error.statusCode || 500, error.message || "Something went wrong while updating video")
+}
 })
 
 const deleteVideo = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
-    //TODO: delete video
+    try {
+        const { videoId } = req.params
+        if (!videoId || !mongoose.isValidObjectId(videoId)) {
+            throw new ApiError(400, "VideoId is required");
+        }
+    
+        const userId = req.user?._id; 
+    
+        const video = await Video.findById(videoId);
+        if (!video) {
+            throw new ApiError(404, "Video not found from DB");
+        }
+        if (video.owner.toString() !== userId.toString()) {
+            throw new ApiError(403, "Forbidden: You can only update your own videos");
+        }
+
+        const videoUrl = video.videoFile?.split("/").pop()?.split(".")[0];
+        const thumbnailUrl = video.thumbnail?.split("/").pop()?.split(".")[0];
+
+        await deleteFromCloudinary(videoUrl, "video");
+        await deleteFromCloudinary(thumbnailUrl);
+    
+        const deletedVideo = await Video.findByIdAndDelete(videoId).select("-createdAt -updatedAt -__v");
+    
+        return res.status(200).json(
+            new ApiResponse(200, deletedVideo, "Video deleted Successfully")
+        )
+    } catch (error) {
+        throw new ApiError(error.statusCode || 500, error.message || "Something went wrong while deleting the video")
+    }
+
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
+    try {
+        const { videoId } = req.params
+        if (!videoId || !mongoose.isValidObjectId(videoId)) {
+            throw new ApiError(400, "VideoId is required");
+        }
+    
+        const userId = req.user?._id; 
+        
+        const video = await Video.findById(videoId);
+        if (!video) {
+            throw new ApiError(404, "Video not found from DB");
+        }
+        if (video.owner.toString() !== userId.toString()) {
+            throw new ApiError(403, "Forbidden: You can only update your own videos");
+        }
+    
+        const prevPublishedStatus = video.isPublished;
+    
+        const updatedVideo = await Video.findByIdAndUpdate(videoId, {
+            isPublished : !prevPublishedStatus
+        }, {new : true});
+    
+        res.status(200).json(
+            new ApiResponse(200, updatedVideo.isPublished, "Published status updated successfully")
+        )
+    } catch (error) {
+        throw new ApiError(error.statusCode || 500, error.message || "Something went wrong while updating published status")
+    }
 })
 
 export {

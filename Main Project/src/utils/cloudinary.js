@@ -8,7 +8,7 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET 
 });
 
-const uploadOnCloudinary = async (localFilePath, resourceType = "auto") => {
+const uploadOnCloudinary = async (localFilePath, resourceType = "image") => {
     try {
         if (!localFilePath) {
             console.log('No local file path found');
@@ -26,7 +26,6 @@ const uploadOnCloudinary = async (localFilePath, resourceType = "auto") => {
         // Upload to cloudinary with proper options
         const response = await cloudinary.uploader.upload(localFilePath, {
             resource_type: resourceType,
-            folder: resourceType === "video" ? "videos" : "images", // Organize in folders
         });
 
         console.log('File uploaded successfully on cloudinary');
@@ -55,6 +54,8 @@ const deleteFromCloudinary = async (publicId, resourceType = "image") => {
         if (!publicId) {
             throw new ApiError(400, 'No public id found');
         }
+
+        console.log(`Deleting file: ${publicId} as ${resourceType}`);
 
         // Delete from cloudinary
         const response = await cloudinary.uploader.destroy(publicId, {
