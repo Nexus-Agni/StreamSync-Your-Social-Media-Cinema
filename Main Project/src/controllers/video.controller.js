@@ -198,7 +198,9 @@ try {
             throw new ApiError(400, "VideoId is required");
         }
     
-        const {title, description, thumbnail} = req.body;
+        const {title, description} = req.body;
+        const thumbnail = req.file;
+
         if (!title && !description && !thumbnail) {
             throw new ApiError(400, "At least one field among title, description, thumbnail is required");
         }
@@ -213,21 +215,38 @@ try {
             throw new ApiError(403, "Forbidden: You can only update your own videos");
         }
 
+        const updateFields = {};
+    
+        if (title) updateFields.title = title;
+        if (description) updateFields.description = description;
+
         if (thumbnail) {
-           // TODO : Implement new Thumbnail upload and old thumbnail delete from cloudinary
+            const thumbnailLocalPath = thumbnail.path;
+
+            if (!thumbnailLocalPath) {
+                throw new ApiError(500, "Thumbnail image is required to update thumbnail");
+            }
+
+            const thumbnailImage = await uploadOnCloudinary(thumbnailLocalPath);
+            if (!thumbnailImage) {
+                throw new ApiError(500, "Something went wrong while uploading thumbnail on cloudinary")
+            }
+
+            const oldThumbnailUrl = video.thumbnail?.split("/").pop()?.split(".")[0];
+            if (oldThumbnailUrl) {
+                await deleteFromCloudinary(oldThumbnailUrl);
+            }
+
+            updateFields.thumbnail = thumbnailImage.url;
         }
     
         const updatedVideo = await Video.findByIdAndUpdate(
             videoId,
             {
-                $set : {
-                    ...(title && {title}),
-                    ...(description && {description}),
-                    ...(thumbnail && {thumbnail})
-                }
+                $set : updateFields
             },
             {new : true}
-        )
+        ).select('-createdAt -updatedAt -__v');
     
         res.status(200).json(
             new ApiResponse(200, updatedVideo, "Video updated successfully")
@@ -295,7 +314,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
         }, {new : true});
     
         res.status(200).json(
-            new ApiResponse(200, updatedVideo.isPublished, "Published status updated successfully")
+            new ApiResponse(200, {isPublished : updatedVideo.isPublished}, "Published status updated successfully")
         )
     } catch (error) {
         throw new ApiError(error.statusCode || 500, error.message || "Something went wrong while updating published status")
