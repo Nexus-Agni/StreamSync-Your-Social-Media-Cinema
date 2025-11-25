@@ -204,9 +204,43 @@ try {
 })
 
 const updatePlaylist = asyncHandler(async (req, res) => {
-    const {playlistId} = req.params
-    const {name, description} = req.body
-    //TODO: update playlist
+    try {
+        const {playlistId} = req.params
+        const {name, description} = req.body
+        if (!playlistId || !isValidObjectId(playlistId)) {
+            throw new ApiError(400, "Valid playlist id is required")
+        }
+        if (!name && !description) {
+            throw new ApiError(400, "Either name or description is required to update playlist details")
+        }
+        
+        const userId = req.user?._id;
+        const playlist = await Playlist.findById(playlistId)
+        if (!playlist) {
+            throw new ApiError(404, "Playlist does not exist")
+        }
+    
+        if (playlist.owner.toString() !== userId.toString()) {
+            throw new ApiError(403, "Forbidden: You can only update your own playlists")
+        }
+    
+        let updateFields = {}
+    
+        if (name) updateFields.name = name;
+        if (description) updateFields.description = description;
+        
+        const updatedPlaylist = await Playlist.findByIdAndUpdate(playlist._id, {
+            $set : {
+                ...updateFields
+            }
+        }, {new : true}).select("-owner -createdAt -updatedAt -__v")
+    
+        res.status(200).json(
+            new ApiResponse(200, updatedPlaylist, "Playlist updated successfully")
+        )
+    } catch (error) {
+        throw new ApiError(error.statusCode || 500, error.message || "Something went wrong while updating playlist")
+    }
 })
 
 export {

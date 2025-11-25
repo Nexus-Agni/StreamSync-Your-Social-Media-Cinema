@@ -215,7 +215,7 @@ try {
             throw new ApiError(403, "Forbidden: You can only update your own videos");
         }
 
-        const updateFields = {};
+        let updateFields = {};
     
         if (title) updateFields.title = title;
         if (description) updateFields.description = description;
