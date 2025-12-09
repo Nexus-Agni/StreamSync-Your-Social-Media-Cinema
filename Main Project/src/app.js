@@ -25,6 +25,8 @@ import videoRouter from "./routers/video.route.js";
 import subscriptionRouter from "./routers/subscription.routes.js";
 import healthCheckRouter from "./routers/healthcheck.routes.js";
 import playlistRouter from "./routers/playlist.routes.js";
+import likeRouter from "./routers/like.routes.js";
+import commentRouter from "./routers/comment.routes.js";
 
 
 
@@ -36,5 +38,7 @@ app.use('/api/v1/tweets', tweetRouter)
 app.use('/api/v1/videos', videoRouter)
 app.use('/api/v1/subscriptions', subscriptionRouter)
 app.use('/api/v1/playlists', playlistRouter)
+app.use('/api/v1/likes', likeRouter)
+app.use('/api/v1/comments', commentRouter)
 
 export default app;
